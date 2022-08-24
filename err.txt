@@ -1,0 +1,379 @@
+rmap cache size = 0
+
+
+ #######   ######  ########     ##     ## ######## #### ##        ######
+##     ## ##    ## ##     ##    ##     ##    ##     ##  ##       ##    ##
+##     ## ##       ##     ##    ##     ##    ##     ##  ##       ##
+##     ## ##       ##     ##    ##     ##    ##     ##  ##        ######
+##  ## ## ##       ##     ##    ##     ##    ##     ##  ##             ##
+##    ##  ##    ## ##     ##    ##     ##    ##     ##  ##       ##    ##
+ ##### ##  ######  ########      #######     ##    #### ########  ######
+Created by Massimo Di Pierro - License GPL2 - all-to-all convertion utility
+For the latest source and documentation: http://code.google.com/p/qcdutils/
+
+converting: /global/project/projectdirs/m3760/hisq/runs/runmd_test_l9624f21b8249m002022m01011/l9624f21b8249m002022m01011a.485 -> /global/project/projectdirs/m3760/hisq/runs/runmd_test_l9624f21b8249m002022m01011/l9624f21b8249m002022m01011a.485.ildg
+  (precision: d, size: 24x96x96x96)
+rmap cache size = 1
+rmap cache size = 2
+Wrote profile results to qcdutils_get.py.lprof
+Timer unit: 1e-06 s
+
+Total time: 0 s
+File: qcdutils_get.py
+Function: dump_info at line 133
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   133                                               @PROFILE
+   134                                               def dump_info(self,filename=None):
+   135                                                   f = open(filename or (self.filename+'.fromlime.info'),'w')
+   136                                                   f.write("LIME records:\n")
+   137                                                   for a,b,c in self:
+   138                                                       for a,b,c in self:
+   139                                                           f.write('- %s [%sbytes]\n' % (a,c))
+   140                                                           if c<1000:
+   141                                                               f.write('\n'+b.read(c)+'\n\n')
+
+Total time: 0 s
+File: qcdutils_get.py
+Function: read at line 144
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   144                                               @PROFILE
+   145                                               def read(self,record):
+   146                                                   """
+   147                                                   reads a Lime record
+   148                                                   >>> lime = Lime('filename','r')
+   149                                                   >>> name, reader, size = lime.read(records = 0)
+   150                                                   """
+   151                                                   if not self.mode in ('r','rb'):
+   152                                                       raise RuntimeError, "not suported"
+   153                                                   (name,position,size) = self.records[record]
+   154                                                   self.file.seek(position)
+   155                                                   return (name, self.file, size)
+
+Total time: 3683.13 s
+File: qcdutils_get.py
+Function: write at line 168
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   168                                               @PROFILE
+   169                                               def write(self,name,reader,size = None,chunk = MAXBYTES):
+   170                                                   """
+   171                                                   write a Lime record
+   172                                                   >>> lime = Lime('filename','w')
+   173                                                   >>> lime.write('record name','data',size = 4)
+   174                                                   data can be a string or a file object
+   175                                                   """
+   176         3          3.0      1.0      0.0          if not self.mode in ('w','wb'):
+   177                                                       raise RuntimeError, "not supported"
+   178         3         16.0      5.3      0.0          if isinstance(reader,str):
+   179         2          2.0      1.0      0.0              if size == None:
+   180         2          2.0      1.0      0.0                  size = len(reader)
+   181         2         14.0      7.0      0.0              reader = cStringIO.StringIO(reader)
+   182                                                   # write record header
+   183         3          9.0      3.0      0.0          position = self.file.tell()
+   184         3         25.0      8.3      0.0          header = struct.pack('!iHHq128s',self.magic,self.version,0,size,name)
+   185         3          6.0      2.0      0.0          self.file.write(header)
+   186                                                   # read data from reader and write to file
+   187         3          7.0      2.3      0.0          if hasattr(reader,'read'):
+   188         2          5.0      2.5      0.0              for i in xrange(size / chunk):
+   189                                                           data = reader.read(chunk)
+   190                                                           if len(data) != chunk:
+   191                                                               raise IOError
+   192                                                           self.file.write(data)
+   193         2          2.0      1.0      0.0              chunk = size % chunk
+   194         2          3.0      1.5      0.0              data = reader.read(chunk)
+   195         2          2.0      1.0      0.0              if len(data) != chunk:
+   196                                                           raise IOError
+   197         2          2.0      1.0      0.0              self.file.write(data)
+   198                                                   else:
+   199  21233665 3609747404.0    170.0     98.0              for data in reader:
+   200  21233664   73383384.0      3.5      2.0                  self.file.write(data)
+   201                                                   # add padding bytes
+   202         3          4.0      1.3      0.0          padding = (8 - (size % 8)) % 8
+   203         3          3.0      1.0      0.0          self.file.write('\0'*padding)
+   204         3          4.0      1.3      0.0          self.records.append((name,size,position))
+
+Total time: 436.845 s
+File: qcdutils_get.py
+Function: check_unitarity at line 272
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   272                                           @PROFILE
+   273                                           def check_unitarity(items,tolerance = 1.0):
+   274                                               """
+   275                                               this does not quite checks for unitarity, only that numbers are in [-1,+1] range
+   276                                               """
+   277  21233664  436844762.0     20.6    100.0      if any(abs(x) > tolerance for x in items):
+   278                                                   raise RuntimeError, "matrix is not unitary"
+
+Total time: 1308.78 s
+File: qcdutils_get.py
+Function: reorder at line 286
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   286                                           @PROFILE
+   287                                           def reorder(data,order1,order2): # data are complex numbers
+   288                                               """
+   289                                               reorders a list as in the example:
+   290                                               >>> assert ''.join(reorder('AABBCCDD',[X,Y,Z,T],[Z,Y,X,T])) == 'CCBBAADD'
+   291                                               """
+   292  42467329   17536363.0      0.4      1.3      k = len(data)      # 4*9*2
+   293  42467329   93733588.0      2.2      7.2      key = str([k, order1, order2])
+   294  42467329   22618715.0      0.5      1.7      if key not in reorder.cache:
+   295         3        158.0     52.7      0.0          rmap = generate_rmap(k, order1, order2)
+   296         3         14.0      4.7      0.0          print 'rmap cache size =', len(reorder.cache)
+   297         3          1.0      0.3      0.0          reorder.cache[key] = rmap
+   298                                               else:
+   299  42467326   18604744.0      0.4      1.4          rmap = reorder.cache[key]
+   300 3100114953 1156283972.0      0.4     88.3      return [data[rmap[i]] for i in range(k)]
+
+Total time: 1876.99 s
+File: qcdutils_get.py
+Function: unpack at line 330
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   330                                               @PROFILE
+   331                                               def unpack(self,data):
+   332                                                   """
+   333                                                   unpacks a string of bytes from file into a list of float/double numbers
+   334                                                   """
+   335  21233664   15039130.0      0.7      0.8          if self.precision.lower() == 'f':
+   336                                                       n = len(data)/4
+   337  21233664   13205698.0      0.6      0.7          elif self.precision.lower() == 'd':
+   338  21233664   14058054.0      0.7      0.7              n = len(data)/8
+   339                                                   else:
+   340                                                       raise IOError, "incorrect input precision"
+   341  21233664   40001641.0      1.9      2.1          items = struct.unpack(self.endianess+str(n)+self.precision,data)
+   342  21233664   10424697.0      0.5      0.6          if self.is_gauge:
+   343  21233664 1273222678.0     60.0     67.8              items = reorder(items,self.link_order,(T,X,Y,Z))
+   344  21233664  501748097.0     23.6     26.7              check_unitarity(items)
+   345  21233664    9285697.0      0.4      0.5          return items
+
+Total time: 0.002816 s
+File: qcdutils_get.py
+Function: write_header at line 659
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   659                                               @PROFILE
+   660                                               def write_header(self,precision,nt,nx,ny,nz):
+   661         1          1.0      1.0      0.0          self.precision = precision
+   662         1          1.0      1.0      0.0          self.site_size = 4*2*9*(4 if precision == 'f' else 8)
+   663         1          1.0      1.0      0.0          self.size = (nt,nx,ny,nz)
+   664         1       2739.0   2739.0     97.3          self.lime = Lime(self.filename,'w')
+   665         1          1.0      1.0      0.0          self.file = self.lime.file
+   666         1          1.0      1.0      0.0          precision = 32 if precision == 'f' else 64
+   667         1          1.0      1.0      0.0          d = dict(field = 'su3gauge',version = '1.0',
+   668         1          3.0      3.0      0.1                   precision = precision,lx = nx,ly = ny,lz = nz,lt = nt)
+   669                                                   data = """<?xml version = "1.0" encoding = "UTF-8"?>
+   670                                           <ildgFormat>
+   671                                           <version>%(version)s</version>
+   672                                           <field>su3gauge</field>
+   673                                           <precision>%(precision)s</precision>
+   674                                           <lx>%(lx)s</lx><ly>%(ly)s</ly><lz>%(lz)s</lz><lt>%(lt)s</lt>
+   675         1          3.0      3.0      0.1  </ildgFormat>""" % d
+   676         1         65.0     65.0      2.3          self.lime.write('ildg-format',data)
+
+Total time: 0 s
+File: qcdutils_get.py
+Function: write_data at line 685
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   685                                               @PROFILE
+   686                                               def write_data(self,data,target_precision = None):
+   687                                                   if len(data) != self.base_size:
+   688                                                       raise RuntimeError, "invalid data size"
+   689                                                   return self.file.write(self.pack(data))
+
+Total time: 3711.19 s
+File: qcdutils_get.py
+Function: convert_from at line 691
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   691                                               @PROFILE
+   692                                               def convert_from(self,other,target_precision = None):
+   693         3      56518.0  18839.3      0.0          (precision,nt,nx,ny,nz) = other.read_header()
+   694         1         11.0     11.0      0.0          notify('  (precision: %s, size: %ix%ix%ix%i)' % (precision,nt,nx,ny,nz))
+   695         1       2832.0   2832.0      0.0          self.write_header(target_precision or precision,nt,nx,ny,nz)
+   696         1        104.0    104.0      0.0          pbar = ProgressBar(widgets = default_widgets , maxval = self.size[0]).start()
+   697         1         16.0     16.0      0.0          def reader():
+   698                                                       for t in xrange(nt):
+   699                                                           for z in xrange(nz):
+   700                                                               for y in xrange(ny):
+   701                                                                   for x in xrange(nx):
+   702                                                                       data = other.read_data(t,x,y,z)
+   703                                                                       yield self.pack(data)
+   704                                                           pbar.update(t)
+   705         1 3711132280.0 3711132280.0    100.0          self.lime.write('ildg-binary-data',reader(),nt*nx*ny*nz*self.site_size)
+   706         1         67.0     67.0      0.0          self.lime.write('ildg-data-LFN',self.lfn)
+   707         1        650.0    650.0      0.0          self.lime.close()
+   708         1        112.0    112.0      0.0          pbar.finish()
+
+Total time: 0.00024 s
+File: qcdutils_get.py
+Function: read_header at line 853
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   853                                               @PROFILE
+   854                                               def read_header(self):
+   855         1         90.0     90.0     37.5          self.file = open(self.filename,'rb')
+   856         1         93.0     93.0     38.8          header = self.file.read(100000)
+   857         1          3.0      3.0      1.2          self.offset = header.find('END_HEADER\n')+11
+   858         1          1.0      1.0      0.4          if self.offset<20:
+   859                                                       raise IOError, 'not in nersc format'
+   860         1          5.0      5.0      2.1          lines = header[:self.offset-1].split('\n')[1:-1]
+   861        28         29.0      1.0     12.1          info = dict([[x.strip() for x in item.split(' = ',1)] for item in lines])
+   862         1          5.0      5.0      2.1          nx = int(info['DIMENSION_1'])
+   863         1          1.0      1.0      0.4          ny = int(info['DIMENSION_2'])
+   864         1          1.0      1.0      0.4          nz = int(info['DIMENSION_3'])
+   865         1          1.0      1.0      0.4          nt = int(info['DIMENSION_4'])
+   866         1          2.0      2.0      0.8          if info['FLOATING_POINT'].endswith('LITTLE'):
+   867         1          1.0      1.0      0.4              self.endianess = '<'
+   868                                                   else: # assume default big endinan
+   869                                                       self.endianess = '>'
+   870         1          1.0      1.0      0.4          if info['DATATYPE'] == '4D_SU3_GAUGE_3x3':
+   871         1          1.0      1.0      0.4              self.reunitarize = False
+   872                                                   elif info['DATATYPE'] == '4D_SU3_GAUGE':
+   873                                                       self.reunitarize = True
+   874                                                       self.base_size = 4*6*2
+   875                                                   else:
+   876                                                       raise IOError, "not in a known nersc format"
+   877         1          1.0      1.0      0.4          if info['FLOATING_POINT'].startswith('IEEE32'):
+   878                                                       self.precision = 'f'
+   879                                                       self.site_size = self.base_size*4
+   880         1          1.0      1.0      0.4          elif info['FLOATING_POINT'].startswith('IEEE64'):
+   881         1          0.0      0.0      0.0              self.precision = 'd'
+   882         1          2.0      2.0      0.8              self.site_size = self.base_size*8
+   883                                                   else:
+   884                                                       raise IOError, "unable to determine input precision"
+   885         1          1.0      1.0      0.4          self.size = (nt,nx,ny,nz)
+   886         1          1.0      1.0      0.4          return (self.precision,nt,nx,ny,nz)
+
+Total time: 2139.02 s
+File: qcdutils_get.py
+Function: read_data at line 888
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   888                                               @PROFILE
+   889                                               def read_data(self,t,x,y,z):
+   890  21233664   11926284.0      0.6      0.6          (nt,nx,ny,nz) = self.size
+   891  21233664   17361852.0      0.8      0.8          i = self.offset + (x+nx*(y+ny*(z+nz*t)))*self.site_size
+   892  21233664   42403338.0      2.0      2.0          self.file.seek(i)
+   893  21233664   28769069.0      1.4      1.3          data = self.file.read(self.site_size)
+   894  21233664 2019986117.0     95.1     94.4          items = self.unpack(data)
+   895  21233664   10217432.0      0.5      0.5          if self.reunitarize:
+   896                                                       new_items = []
+   897                                                       for i in range(4):
+   898                                                           new_items += reunitarize(items[i*12:(i+1)*12])
+   899                                                       items = new_items
+   900  21233664    8356422.0      0.4      0.4          return items
+
+Total time: 3722.13 s
+File: qcdutils_get.py
+Function: main at line 1433
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+  1433                                           @PROFILE
+  1434                                           def main():
+  1435                                               """this is the main program"""
+  1436         1          2.0      2.0      0.0      print LOGO
+  1437         1          2.0      2.0      0.0      formats = ','.join(OPTIONS.keys())
+  1438         1        296.0    296.0      0.0      parser = optparse.OptionParser(usage = USAGE)
+  1439         1          1.0      1.0      0.0      parser.add_option("-q", "--quiet",dest = 'quiet',action = 'store_true',
+  1440         1         32.0     32.0      0.0                        default = False,help = 'no progress bars')
+  1441         1          2.0      2.0      0.0      parser.add_option("-d", "--destination",dest = 'destination',default = None,
+  1442         1         29.0     29.0      0.0                        help = "destination folder")
+  1443         1          1.0      1.0      0.0      parser.add_option("-c", "--convert",dest = 'convert',default = False,
+  1444         1         29.0     29.0      0.0                        help = "converts a field to format (%s)" % formats)
+  1445         1          1.0      1.0      0.0      parser.add_option("-4", "--float",dest = 'float_precision',default = False,
+  1446         1          1.0      1.0      0.0                        action = 'store_true',
+  1447         1         29.0     29.0      0.0                        help = "converts to float precision")
+  1448         1          2.0      2.0      0.0      parser.add_option("-8", "--double",dest = 'double_precision',default = False,
+  1449         1          1.0      1.0      0.0                        action = 'store_true',
+  1450         1         31.0     31.0      0.0                        help = "converts to double precision")
+  1451         1          1.0      1.0      0.0      parser.add_option("-t", "--tests",dest = 'tests',default = False,
+  1452         1          1.0      1.0      0.0                        action = 'store_true',
+  1453         1         27.0     27.0      0.0                        help = "runs some tests")
+  1454         1          1.0      1.0      0.0      parser.add_option("-n", "--noprogressbar",dest = 'noprogressbar',default = False,
+  1455         1          1.0      1.0      0.0                        action = 'store_true',
+  1456         1         26.0     26.0      0.0                        help = "disable progress bar")
+  1457         1         64.0     64.0      0.0      (options, args) = parser.parse_args()
+  1458                                           
+  1459                                               ### disable progress bar if necessary
+  1460         1          1.0      1.0      0.0      if options.noprogressbar:
+  1461                                                   global ProgressBar
+  1462                                                   ProgressBar = ProgressBarDummy
+  1463                                           
+  1464                                               ### run tests if asked
+  1465         1          1.0      1.0      0.0      if options.tests:
+  1466                                                   test_conversions()
+  1467                                                   sys.exit(0)
+  1468                                           
+  1469                                               ### if no argument source passed, print usage
+  1470         1          1.0      1.0      0.0      try:
+  1471         1          1.0      1.0      0.0          options.source = args[0]
+  1472                                               except IndexError:
+  1473                                                   print USAGE
+  1474                                                   sys.exit(1)
+  1475                                           
+  1476                                               ### download data (http, https, ftp, sftp) or not
+  1477         1          1.0      1.0      0.0      infoonly = False
+  1478         1          2.0      2.0      0.0      if options.source.startswith('http://') or options.source.startswith('https://'):
+  1479                                                   data = get_list(options.source)
+  1480                                                   if not data:
+  1481                                                       notify('unable to connect')
+  1482                                                       sys.exit(0)
+  1483                                                   else:
+  1484                                                       print options.source
+  1485                                                       regex = re.compile('.*/(?P<pattern>[^/]*)$')
+  1486                                                       pattern = regex.search(options.source).group('pattern')
+  1487                                                       target_folder = options.destination or urllib.unquote(pattern)
+  1488                                                       notify('target folder:',target_folder)
+  1489                                                       if not os.path.exists(target_folder):
+  1490                                                           os.mkdir(target_folder)
+  1491                                                       download(data.get('token','none'),data['files'],target_folder,options)
+  1492                                                   conversion_path = os.path.join(target_folder,pattern.replace('nnnnn','*'))
+  1493         1          2.0      2.0      0.0      elif options.source.startswith('ftp://') or options.source.startswith('sftp://'):
+  1494                                                   username = raw_input('username:')
+  1495                                                   password = raw_input('password:')
+  1496                                                   if not os.path.exists(target_folder):
+  1497                                                       os.mkdir(target_folder)
+  1498                                                   ftp_download(options.source,target_folder,username,password)
+  1499         1          5.0      5.0      0.0      elif os.path.basename(options.source).startswith(CATALOG):
+  1500                                                   #db = shelve.open(options.source)
+  1501                                                   #for key in sorted(db):
+  1502                                                   #    row = db[key]
+  1503                                                   #    notify('%s created on %s [%s]' % (key,row['timestamp'],row['md5sum']))
+  1504                                                   return    
+  1505                                               else:            
+  1506         1          2.0      2.0      0.0          infoonly = True
+  1507         1          1.0      1.0      0.0          conversion_path = options.source
+  1508                                           
+  1509                                               ### if options.source = 'gauge.cold.TxXxYxZ' make it
+  1510         1          1.0      1.0      0.0      if options.source.startswith('gauge.cold') and not os.path.exists(options.source):
+  1511                                                   size = [int(x) for x in options.source[11:].split('x')]
+  1512                                                   GaugeMDP(options.source).convert_from(GaugeCold(*size))
+  1513                                           
+  1514                                               ### if conversion required use the universal converter
+  1515         1          1.0      1.0      0.0      if options.convert:
+  1516         1          1.0      1.0      0.0          notify('converting: %s -> %s.%s' % \
+  1517         1          7.0      7.0      0.0                     (conversion_path, conversion_path, options.convert))
+  1518         1          1.0      1.0      0.0          precision = 'f' if options.float_precision else \
+  1519                                                       'd' if options.double_precision else None
+  1520         1 3722130941.0 3722130941.0    100.0          universal_converter(conversion_path,options.convert,precision)
+  1521                                               elif infoonly:
+  1522                                                   universal_converter(conversion_path,options.convert,
+  1523                                                                       precision=None,convert=False)
+

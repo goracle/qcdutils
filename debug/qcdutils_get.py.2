@@ -75,11 +75,11 @@ except NameError:
 
 CATALOG = 'qcdutils.catalog'
 NOW = datetime.datetime.now()
-MAXBYTES = 4096  # max number of bytes for buffered reading
+MAXBYTES = 1000  # max number of bytes for buffered reading
 PRECISION = {'f':32,'d':64}
 (X,Y,Z,T) = (1,2,3,0) # the MDP index convetion, used intenrnally
 
-
+@PROFILE
 def notify(*a):
     """
     just an alies for the print function, in case we need to move to Python 3.x
@@ -95,12 +95,12 @@ class Lime(object):
     it concatenates names byte strings.
     """
     @staticmethod
-    
+    @PROFILE
     def xml_parser(data):
         def f(name,dxml = dom.parseString(data)):
             return dxml.getElementsByTagName(name)[0].childNodes[0].nodeValue
         return f
-    
+    @PROFILE
     def __init__(self,filename,mode,version = 1):
         """
         >>> lime = Lime('filename','r' or 'w')
@@ -129,7 +129,6 @@ class Lime(object):
                 self.file.seek(size+padding,1)
         # self.dump_info()
 
-    
     @PROFILE
     def dump_info(self,filename=None):
         f = open(filename or (self.filename+'.fromlime.info'),'w')
@@ -140,7 +139,6 @@ class Lime(object):
                 if c<1000:
                     f.write('\n'+b.read(c)+'\n\n')
 
-    
     @PROFILE
     def read(self,record):
         """
@@ -154,7 +152,7 @@ class Lime(object):
         self.file.seek(position)
         return (name, self.file, size)
 
-    
+    @PROFILE
     def __iter__(self):
         """
         >>> lime = Lime('filename','r')
@@ -164,7 +162,6 @@ class Lime(object):
         for record in range(len(self)):
             yield self.read(record)
 
-    
     @PROFILE
     def write(self,name,reader,size = None,chunk = MAXBYTES):
         """
@@ -203,25 +200,25 @@ class Lime(object):
         self.file.write('\0'*padding)
         self.records.append((name,size,position))
 
-    
+    @PROFILE
     def close(self):
         self.file.close()
 
-    
+    @PROFILE
     def __len__(self):
         """
         returns the number of lime records
         """
         return len(self.records)
 
-    
+    @PROFILE
     def keys(self):
         """
         returns the name of lime records
         """
         return [name for (name,position,size) in self.records]
 
-
+@PROFILE
 def test_lime():
     notify('making a dummy LIME file and writing junk in it...')
     lime = Lime('test.zzz.0.lime','w')
@@ -242,7 +239,7 @@ def test_lime():
     lime.close()
 
 
-
+@PROFILE
 def copy_lime(input,output):
     lime_in = Lime(input,'rb')
     lime_out = Lime(output,'wb')
@@ -254,7 +251,7 @@ def copy_lime(input,output):
 
 ##### reunitarize #############################################################
 
-
+@PROFILE
 def reunitarize(s):
     (a1re, a1im, a2re, a2im, a3re, a3im, b1re, b1im, b2re, b2im, b3re, b3im) = s
     c1re = a2re * b3re - a2im * b3im - a3re * b2re + a3im * b2im
@@ -268,20 +265,14 @@ def reunitarize(s):
             c1re, c1im, c2re, c2im, c3re, c3im)
 
 
-
 @PROFILE
 def check_unitarity(items,tolerance = 1.0):
     """
     this does not quite checks for unitarity, only that numbers are in [-1,+1] range
     """
-    if any(abs(x) > tolerance for x in items):
+    errors = [x for x in items if x<-tolerance or x>tolerance]
+    if errors:
         raise RuntimeError, "matrix is not unitary"
-
-    # previous slow version
-    #errors = [x for x in items if x<-tolerance or x>tolerance]
-    #if errors:
-    #    raise RuntimeError, "matrix is not unitary"
-
 
 @PROFILE
 def reorder(data,order1,order2): # data are complex numbers
@@ -290,33 +281,13 @@ def reorder(data,order1,order2): # data are complex numbers
     >>> assert ''.join(reorder('AABBCCDD',[X,Y,Z,T],[Z,Y,X,T])) == 'CCBBAADD'
     """
     k = len(data)      # 4*9*2
-    key = str([k, order1, order2])
-    if key not in reorder.cache:
-        rmap = generate_rmap(k, order1, order2)
-        print 'rmap cache size =', len(reorder.cache)
-        reorder.cache[key] = rmap
-    else:
-        rmap = reorder.cache[key]
-    return [data[rmap[i]] for i in range(k)]
-reorder.cache={}
-
-def generate_rmap(length, order1, order2):
-    """generate map based on length and orders;
-     to be (re)used by reorder"""
-    k = length      # 4*9*2
     m = len(order1)    # 4
     n = k/m            # 9*2
-    map1 = {}
+    items = [None]*k
     for i in range(k):
-        idx = n*order1[i/n]+i%n
-        map1[idx] = i
-    return [map1[n*order2[i/n]+i%n] for i in range(k)]
-
-    # old version; very slow
-    #for i in range(k):
-        #items[n*order1[i/n]+i%n] = data[i]
-    #items = [items[n*order2[i/n]+i%n] for i in range(k)]
-    #return items
+        items[n*order1[i/n]+i%n] = data[i]
+    items = [items[n*order2[i/n]+i%n] for i in range(k)]
+    return items
 
 assert ''.join(reorder('AABBCCDD',[X,Y,Z,T],[Z,Y,X,T])) == 'CCBBAADD'
 
@@ -326,7 +297,6 @@ class QCDFormat(object):
     site_order = [T,Z,Y,X] ### always unused but for reference
     link_order = [X,Y,Z,T] ### this is the order of links at the site level
     is_gauge = True or False
-    
     @PROFILE
     def unpack(self,data):
         """
@@ -343,7 +313,7 @@ class QCDFormat(object):
             items = reorder(items,self.link_order,(T,X,Y,Z))
             check_unitarity(items)
         return items
-    
+    @PROFILE
     def pack(self,items):
         """
         packs a list of float/double numbers into a string of bytes
@@ -352,41 +322,41 @@ class QCDFormat(object):
             items = reorder(items,(T,X,Y,Z),self.link_order)
         n = len(items)
         return struct.pack(self.endianess+str(n)+self.precision,*items)
-    
+    @PROFILE
     def __init__(self,filename):
         """set defaults"""
         pass
-    
+    @PROFILE
     def read_header(self):
         """read file header or fails"""
         return ('f',8,4,4,4) # open file
-    
+    @PROFILE
     def read_data(self,t,x,y,z):
         """random access read"""
         return (0,0,0,0,'data')
-    
+    @PROFILE
     def write_header(self,precision,nt,nx,ny,nz):
         """write header for new file"""
         pass
-    
+    @PROFILE
     def write_data(self,data):
         """write next site variables, in order"""
         pass
-    
+    @PROFILE
     def close(self):
         """closes the file"""
         self.file.close()
 
 class GaugeCold(QCDFormat):
-    
+    @PROFILE
     def __init__(self,nt = 8,nx = 4,ny = 4,nz = 4):
         self.precision = 'f'
         self.size = (nt,nx,ny,nz)
-    
+    @PROFILE
     def read_header(self):
         (nt,nx,ny,nz) = self.size
         return (self.precision,nt,nx,ny,nz)
-    
+    @PROFILE
     def read_data(self,t,x,y,z):
         (nt,nx,ny,nz) = self.size
         return [1.0, 0.0, 0.0, 0.0, 0.0, 0.0,
@@ -406,7 +376,7 @@ class GaugeCold(QCDFormat):
 class GaugeMDP(QCDFormat):
     site_order = [T,X,Y,Z]
     link_order = [T,X,Y,Z]
-    
+    @PROFILE
     def __init__(self,filename,dummyfilename = 'none'):
         self.filename = filename
         self.dummyfilename = dummyfilename
@@ -416,7 +386,7 @@ class GaugeMDP(QCDFormat):
         self.offset = None
         self.site_size = None
         self.base_size = 4*9*2
-    
+    @PROFILE
     def read_header(self):
         self.file = open(self.filename,'rb')
         header = self.file.read(self.header_size)
@@ -434,7 +404,7 @@ class GaugeMDP(QCDFormat):
         self.offset = self.file.tell()
         self.size = (nt,nx,ny,nz)
         return (self.precision,nt,nx,ny,nz)
-    
+    @PROFILE
     def write_header(self,precision,nt,nx,ny,nz):
         self.file = open(self.filename,'wb')
         self.site_size = self.base_size*(4 if precision == 'f' else 8)
@@ -446,19 +416,19 @@ class GaugeMDP(QCDFormat):
         self.size = (nt,nx,ny,nz)
         self.precision = precision
         self.offset = self.file.tell()
-    
+    @PROFILE
     def read_data(self,t,x,y,z):
         (nt,nx,ny,nz) = self.size
         i = self.offset + (z+nz*(y+ny*(x+nx*t)))*self.site_size
         self.file.seek(i)
         data = self.file.read(self.site_size)
         return self.unpack(data)
-    
+    @PROFILE
     def write_data(self,data,target_precision = None):
         if len(data) != self.base_size:
             raise RuntimeError, "invalid data size"
         return self.file.write(self.pack(data))
-    
+    @PROFILE
     def convert_from(self,other,target_precision = None):
         (precision,nt,nx,ny,nz) = other.read_header()
         notify('  (precision: %s, size: %ix%ix%ix%i)' % (precision,nt,nx,ny,nz))
@@ -475,7 +445,7 @@ class GaugeMDP(QCDFormat):
 
 
 class GaugeMDPSplit(GaugeMDP):
-    
+    @PROFILE
     def convert_from(self,other,target_precision = None):
         (precision,nt,nx,ny,nz) = other.read_header()
         notify('  (precision: %s, size: %ix%ix%ix%i)' % (precision,nt,nx,ny,nz))
@@ -497,7 +467,7 @@ class GaugeMDPSplit(GaugeMDP):
 class PropagatorMDP(QCDFormat):
     site_order = [T,X,Y,Z]
     is_gauge = False
-    
+    @PROFILE
     def __init__(self,filename):
         self.filename = filename
         self.header_format = '<60s60s60sLi10iii'
@@ -506,7 +476,7 @@ class PropagatorMDP(QCDFormat):
         self.offset = None
         self.site_size = None
         self.base_size = 16*9*2
-    
+    @PROFILE
     def read_header(self):
         self.file = open(self.filename,'rb')
         header = self.file.read(self.header_size)
@@ -524,7 +494,7 @@ class PropagatorMDP(QCDFormat):
         self.offset = self.file.tell()
         self.size = (nt,nx,ny,nz)
         return (self.precision,nt,nx,ny,nz)
-    
+    @PROFILE
     def write_header(self,precision,nt,nx,ny,nz):
         self.file = open(self.filename,'wb')
         self.site_size = self.base_size*(4 if precision == 'f' else 8)
@@ -536,18 +506,18 @@ class PropagatorMDP(QCDFormat):
         self.size = (nt,nx,ny,nz)
         self.precision = precision
         self.offset = self.file.tell()
-    
+    @PROFILE
     def read_data(self,t,x,y,z):
         i = self.offset + (z+nz*(y+ny*(x+nx*t)))*self.site_size
         self.file.seek(i)
         data = self.file.read(self.site_size)
         return self.unpack(data)
-    
+    @PROFILE
     def write_data(self,data,target_precision = None):
         if len(data) != self.base_size:
             raise RuntimeError, "invalid data size"
         return self.file.write(self.pack(data))
-    
+    @PROFILE
     def convert_from(self,other,target_precision = None):
         (precision,nt,nx,ny,nz) = other.read_header()
         notify('  (precision: %s, size: %ix%ix%ix%i)' % (precision,nt,nx,ny,nz))
@@ -566,7 +536,7 @@ class PropagatorMDP(QCDFormat):
 class PropagatorMDPSplit(QCDFormat):
     site_order = [T,X,Y,Z]
     is_gauge = False
-    
+    @PROFILE
     def __init__(self,filename):
         self.filename = filename
         self.header_format = '<60s60s60sLi10iii'
@@ -575,7 +545,7 @@ class PropagatorMDPSplit(QCDFormat):
         self.offset = None
         self.site_size = None
         self.base_size = 16*9*2
-    
+    @PROFILE
     def write_header(self,precision,nt,nx,ny,nz):
         self.file = open(self.filename,'wb')
         self.site_size = self.base_size*(4 if precision == 'f' else 8)
@@ -587,12 +557,12 @@ class PropagatorMDPSplit(QCDFormat):
         self.size = (nt,nx,ny,nz)
         self.precision = precision
         self.offset = self.file.tell()
-    
+    @PROFILE
     def write_data(self,data,target_precision = None):
         if len(data) != self.base_size:
             raise RuntimeError, "invalid data size"
         return self.file.write(self.pack(data))
-    
+    @PROFILE
     def convert_from(self,other,target_precision = None):
         (precision,nt,nx,ny,nz) = other.read_header()
         notify('  (precision: %s, size: %ix%ix%ix%i)' % (precision,nt,nx,ny,nz))
@@ -612,14 +582,14 @@ class PropagatorMDPSplit(QCDFormat):
 
 
 class GaugeILDG(QCDFormat):
-    
+    @PROFILE
     def __init__(self,filename,lfn = 'unkown'):
         self.filename = filename
         self.endianess = '>'
         self.lfn = lfn
         self.field = 'su3gauge'
         self.base_size = 4*9*2
-    
+    @PROFILE
     def read_header(self):
         self.lime = Lime(self.filename,'r')
         self.file = self.lime.file
@@ -655,7 +625,6 @@ class GaugeILDG(QCDFormat):
                 self.size = (nt,nx,ny,nz)
                 return (self.precision,nt,nx,ny,nz)
         raise IOError, "file is not in lime format"
-    
     @PROFILE
     def write_header(self,precision,nt,nx,ny,nz):
         self.precision = precision
@@ -674,20 +643,18 @@ class GaugeILDG(QCDFormat):
 <lx>%(lx)s</lx><ly>%(ly)s</ly><lz>%(lz)s</lz><lt>%(lt)s</lt>
 </ildgFormat>""" % d
         self.lime.write('ildg-format',data)
-    
+    @PROFILE
     def read_data(self,t,x,y,z):
         (nt,nx,ny,nz) = self.size
         i = self.offset + (x+nx*(y+ny*(z+nz*t)))*self.site_size
         self.file.seek(i)
         data = self.file.read(self.site_size)
         return self.unpack(data)
-    
     @PROFILE
     def write_data(self,data,target_precision = None):
         if len(data) != self.base_size:
             raise RuntimeError, "invalid data size"
         return self.file.write(self.pack(data))
-    
     @PROFILE
     def convert_from(self,other,target_precision = None):
         (precision,nt,nx,ny,nz) = other.read_header()
@@ -709,12 +676,12 @@ class GaugeILDG(QCDFormat):
 
 
 class GaugeSCIDAC(QCDFormat):
-    
+    @PROFILE
     def __init__(self,filename):
         self.filename = filename
         self.base_size = 4*9*2
         self.endianess = '>'
-    
+    @PROFILE
     def read_header(self):
         self.lime = Lime(self.filename,'r')
         self.file = self.lime.file
@@ -751,7 +718,7 @@ class GaugeSCIDAC(QCDFormat):
             (nt,nx,ny,nz) = self.size
             return (self.precision,nt,nx,ny,nz)
         raise IOError, "file is not in lime format"
-    
+    @PROFILE
     def read_data(self,t,x,y,z):
         (nt,nx,ny,nz) = self.size
         i = self.offset + (x+nx*(y+ny*(z+nz*t)))*self.site_size
@@ -763,7 +730,7 @@ class GaugeSCIDAC(QCDFormat):
 class PropagatorSCIDAC(GaugeSCIDAC):
     is_gauge = False
 
-    
+    @PROFILE
     def __init__(self,filename):
         self.filename = filename
         self.base_size = 16*9*2
@@ -771,7 +738,7 @@ class PropagatorSCIDAC(GaugeSCIDAC):
 
 
 class GaugeMILC(QCDFormat):
-    
+    @PROFILE
     def __init__(self,filename):
         self.filename = filename
         self.header_format = '<i4i64siii' # may change
@@ -780,7 +747,7 @@ class GaugeMILC(QCDFormat):
         self.offset = None
         self.site_size = None
         self.base_size = 4*9*2
-    
+    @PROFILE
     def read_header(self):
         self.file = open(self.filename,'rb')
         header = self.file.read(self.header_size)
@@ -801,7 +768,7 @@ class GaugeMILC(QCDFormat):
                 self.size = (nt,nx,ny,nz)
                 return (self.precision,nt,nx,ny,nz)
         raise IOError, "file not in MILC format"
-    
+    @PROFILE
     def write_header(self,precision,nt,nx,ny,nz):
         self.file = open(self.filename,'wb')
         items = [9]
@@ -814,19 +781,19 @@ class GaugeMILC(QCDFormat):
         header = struct.pack(self.header_format,items)
         self.file.write(header)
         self.offset = self.file.tell()
-    
+    @PROFILE
     def read_data(self,t,x,y,z):
         (nt,nx,ny,nz) = self.size
         i = self.offset + (x+nx*(y+ny*(z+nz*t)))*self.site_size
         self.file.seek(i)
         data = self.file.read(self.site_size)
         return self.unpack(data)
-    
+    @PROFILE
     def write_data(self,data,target_precision = None):
         if len(data) != self.base_size:
             raise RuntimeError, "invalid data size"
         return self.file.write(self.pack(data))
-    
+    @PROFILE
     def convert_from(self,other,target_precision = None):
         (precision,nt,nx,ny,nz) = other.read_header()
         notify('  (precision: %s, size: %ix%ix%ix%i)' % (precision,nt,nx,ny,nz))
@@ -842,14 +809,13 @@ class GaugeMILC(QCDFormat):
                 pbar.update(t)
 
 class GaugeNERSC(QCDFormat):
-    
+    @PROFILE
     def __init__(self,filename):
         self.filename = filename
         self.offset = None
         self.site_size = None
         self.base_size = 4*9*2
         self.endianess = '>'
-    
     @PROFILE
     def read_header(self):
         self.file = open(self.filename,'rb')
@@ -884,7 +850,6 @@ class GaugeNERSC(QCDFormat):
             raise IOError, "unable to determine input precision"
         self.size = (nt,nx,ny,nz)
         return (self.precision,nt,nx,ny,nz)
-    
     @PROFILE
     def read_data(self,t,x,y,z):
         (nt,nx,ny,nz) = self.size
@@ -910,7 +875,7 @@ OPTIONS = {
 
 ALL = (GaugeMDP,GaugeMILC,GaugeNERSC,GaugeILDG,GaugeSCIDAC,PropagatorMDP,PropagatorSCIDAC)
 
-
+@PROFILE
 def universal_converter(path,target,precision,convert=True):
     filenames = [f for f in glob.glob(path) \
                      if not os.path.basename(f).startswith(CATALOG)]
@@ -1009,7 +974,7 @@ class ProgressBarWidget(object):
     is needed. It's size may change between call, but the results will
     not be good if the size changes drastically and repeatedly.
     """
-    
+    @PROFILE
     def update(self, pbar):
         """Returns the string representing the widget.
 
@@ -1030,7 +995,7 @@ class ProgressBarWidgetHFill(object):
     line, and they will all have the same width, and together will
     fill the line.
     """
-    
+    @PROFILE
     def update(self, pbar, width):
         """Returns the string representing the widget.
 
@@ -1045,10 +1010,10 @@ class ProgressBarWidgetHFill(object):
 
 class ETA(ProgressBarWidget):
     "Widget for the Estimated Time of Arrival"
-    
+    @PROFILE
     def format_time(self, seconds):
         return time.strftime('%H:%M:%S', time.gmtime(seconds))
-    
+    @PROFILE
     def update(self, pbar):
         if pbar.currval == 0:
             return 'ETA:  --:--:--'
@@ -1062,11 +1027,11 @@ class ETA(ProgressBarWidget):
 
 class FileTransferSpeed(ProgressBarWidget):
     "Widget for showing the transfer speed (useful for file transfers)."
-    
+    @PROFILE
     def __init__(self):
         self.fmt = '%6.2f %s'
         self.units = ['B','K','M','G','T','P']
-    
+    @PROFILE
     def update(self, pbar):
         if pbar.seconds_elapsed < 2e-6:# == 0:
             bps = 0.0
@@ -1082,11 +1047,11 @@ class FileTransferSpeed(ProgressBarWidget):
 
 class RotatingMarker(ProgressBarWidget):
     "A rotating marker for filling the bar of progress."
-    
+    @PROFILE
     def __init__(self, markers = '|/-\\'):
         self.markers = markers
         self.curmark = -1
-    
+    @PROFILE
     def update(self, pbar):
         if pbar.finished:
             return self.markers[0]
@@ -1095,25 +1060,25 @@ class RotatingMarker(ProgressBarWidget):
 
 class Percentage(ProgressBarWidget):
     "Just the percentage done."
-    
+    @PROFILE
     def update(self, pbar):
         return '%3d%%' % pbar.percentage()
 
 
 class Bar(ProgressBarWidgetHFill):
     "The bar of progress. It will strech to fill the line."
-    
+    @PROFILE
     def __init__(self, marker = '#', left = '|', right = '|'):
         self.marker = marker
         self.left = left
         self.right = right
-    
+    @PROFILE
     def _format_marker(self, pbar):
         if isinstance(self.marker, (str, unicode)):
             return self.marker
         else:
             return self.marker.update(pbar)
-    
+    @PROFILE
     def update(self, pbar, width):
         percent = pbar.percentage()
         cwidth = width - len(self.left) - len(self.right)
@@ -1125,7 +1090,7 @@ class Bar(ProgressBarWidgetHFill):
 
 class ReverseBar(Bar):
     "The reverse bar of progress, or bar of regress. :)"
-    
+    @PROFILE
     def update(self, pbar, width):
         percent = pbar.percentage()
         cwidth = width - len(self.left) - len(self.right)
@@ -1169,7 +1134,7 @@ class ProgressBar(object):
     - seconds_elapsed: seconds elapsed since start_time
     - percentage(): percentage of the progress (this is a method)
     """
-    
+    @PROFILE
     def __init__(self, maxval = 100, widgets = default_widgets, term_width = None,
                  fd = sys.stderr):
         assert maxval > 0
@@ -1193,17 +1158,17 @@ class ProgressBar(object):
         self.start_time = None
         self.seconds_elapsed = 0
 
-    
+    @PROFILE
     def handle_resize(self, signum, frame):
         h,w = array.array('h', fcntl.ioctl(self.fd,termios.TIOCGWINSZ,'\0'*8))[:2]
         self.term_width = w
 
-    
+    @PROFILE
     def percentage(self):
         "Returns the percentage of the progress."
         return self.currval*100.0 / self.maxval
 
-    
+    @PROFILE
     def _format_widgets(self):
         r = []
         hfill_inds = []
@@ -1225,15 +1190,15 @@ class ProgressBar(object):
             r[iw] = r[iw].update(self, (self.term_width-currwidth)/num_hfill)
         return r
 
-    
+    @PROFILE
     def _format_line(self):
         return ''.join(self._format_widgets()).ljust(self.term_width)
 
-    
+    @PROFILE
     def _need_update(self):
         return int(self.percentage()) != int(self.prev_percentage)
 
-    
+    @PROFILE
     def update(self, value):
         "Updates the progress bar to a new value."
         assert 0 <= value <= self.maxval
@@ -1250,7 +1215,7 @@ class ProgressBar(object):
             self.finished = True
             self.fd.write(self._format_line() + '\n')
 
-    
+    @PROFILE
     def start(self):
         """Start measuring time, and prints the bar at 0%.
 
@@ -1265,7 +1230,7 @@ class ProgressBar(object):
         self.update(0)
         return self
 
-    
+    @PROFILE
     def finish(self):
         """Used to tell the progress is finished."""
         self.update(self.maxval)
@@ -1273,18 +1238,18 @@ class ProgressBar(object):
             signal.signal(signal.SIGWINCH, signal.SIG_DFL)
 
 class ProgressBarDummyy(object):
-    
+    @PROFILE
     def __init__(self, maxval = 100, widgets = default_widgets, 
                  term_width = None, fd = sys.stderr):
         self.nt = maxval
-    
+    @PROFILE
     def update(self, t):
         notify("completed %s/%s" % (t+1, self.nt))
-    
+    @PROFILE
     def start(self):
         notify("starting...")
         return self
-    
+    @PROFILE
     def finish(self):
         notify("done!")
 
@@ -1293,7 +1258,7 @@ if not HAVE_PROGRESSBAR:
 
 ###### END PROGRESSBAR #########
 
-
+@PROFILE
 def register_file(path,catalog=CATALOG):
     if not os.path.exists(path):
         return False
@@ -1310,7 +1275,7 @@ def register_file(path,catalog=CATALOG):
     #finally:
     #    catalog.close()
 
-
+@PROFILE
 def file_registered(path,catalog=CATALOG,checksum=False):
     if not os.path.exists(path):
         return False
@@ -1331,7 +1296,7 @@ def file_registered(path,catalog=CATALOG,checksum=False):
         #catalog.close()
     return False
 
-
+@PROFILE
 def md5_for_large_file(filename, block_size = 2**20):
     if not os.path.exists(filename):
         return None
@@ -1344,7 +1309,7 @@ def md5_for_large_file(filename, block_size = 2**20):
         md5.update(data)
     return md5.hexdigest()
 
-
+@PROFILE
 def get_list(url):
     try:
         json = urllib.urlopen(url).read()
@@ -1354,7 +1319,7 @@ def get_list(url):
         notify('ERROR: %s' % e)
         return None
 
-
+@PROFILE
 def download(token,files,target_folder,options):
     notify('total files to download: %s' % len(files))
     for k,f in enumerate(files):
@@ -1399,11 +1364,11 @@ def download(token,files,target_folder,options):
             else:
                 notify('ERROR: file appears truncated')
 
-
+@PROFILE
 def ftp_download(source,target_folder,username,password):
     raise NotImplementedError
 
-
+@PROFILE
 def test_conversions():
     try:
         passed = False

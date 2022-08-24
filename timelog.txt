@@ -1,0 +1,199 @@
+
+
+ #######   ######  ########     ##     ## ######## #### ##        ######
+##     ## ##    ## ##     ##    ##     ##    ##     ##  ##       ##    ##
+##     ## ##       ##     ##    ##     ##    ##     ##  ##       ##
+##     ## ##       ##     ##    ##     ##    ##     ##  ##        ######
+##  ## ## ##       ##     ##    ##     ##    ##     ##  ##             ##
+##    ##  ##    ## ##     ##    ##     ##    ##     ##  ##       ##    ##
+ ##### ##  ######  ########      #######     ##    #### ########  ######
+Created by Massimo Di Pierro - License GPL2 - all-to-all convertion utility
+For the latest source and documentation: http://code.google.com/p/qcdutils/
+
+converting: /global/project/projectdirs/m3760/hisq/runs/runmd_test_l9624f21b8249m002022m01011/l9624f21b8249m002022m01011a.479 -> /global/project/projectdirs/m3760/hisq/runs/runmd_test_l9624f21b8249m002022m01011/l9624f21b8249m002022m01011a.479.ildg
+  (precision: d, size: 24x96x96x96)
+Wrote profile results to qcdutils_get.py.lprof
+Timer unit: 1e-06 s
+
+Total time: 525.929 s
+File: qcdutils_get.py
+Function: check_unitarity at line 269
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   269                                           @PROFILE
+   270                                           def check_unitarity(items,tolerance = 1.0):
+   271                                               """
+   272                                               this does not quite checks for unitarity, only that numbers are in [-1,+1] range
+   273                                               """
+   274 1550057472  519480645.0      0.3     98.8      errors = [x for x in items if x<-tolerance or x>tolerance]
+   275  21233664    6448284.0      0.3      1.2      if errors:
+   276                                                   raise RuntimeError, "matrix is not unitary"
+
+Total time: 4058.86 s
+File: qcdutils_get.py
+Function: reorder at line 279
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   279                                           @PROFILE
+   280                                           def reorder(data,order1,order2): # data are complex numbers
+   281                                               """
+   282                                               reorders a list as in the example:
+   283                                               >>> assert ''.join(reorder('AABBCCDD',[X,Y,Z,T],[Z,Y,X,T])) == 'CCBBAADD'
+   284                                               """
+   285  42467329   18285780.0      0.4      0.5      k = len(data)      # 4*9*2
+   286  42467329   15903773.0      0.4      0.4      m = len(order1)    # 4
+   287  42467329   16719836.0      0.4      0.4      n = k/m            # 9*2
+   288  42467329   26772145.0      0.6      0.7      items = [None]*k
+   289 3100114953  928245373.0      0.3     22.9      for i in range(k):
+   290 3057647624 1510394576.0      0.5     37.2          items[n*order1[i/n]+i%n] = data[i]
+   291 3100114953 1529452100.0      0.5     37.7      items = [items[n*order2[i/n]+i%n] for i in range(k)]
+   292  42467329   13088158.0      0.3      0.3      return items
+
+Total time: 4627.52 s
+File: qcdutils_get.py
+Function: unpack at line 303
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   303                                               @PROFILE
+   304                                               def unpack(self,data):
+   305                                                   """
+   306                                                   unpacks a string of bytes from file into a list of float/double numbers
+   307                                                   """
+   308  21233664   15065062.0      0.7      0.3          if self.precision.lower() == 'f':
+   309                                                       n = len(data)/4
+   310  21233664   12602313.0      0.6      0.3          elif self.precision.lower() == 'd':
+   311  21233664   12771392.0      0.6      0.3              n = len(data)/8
+   312                                                   else:
+   313                                                       raise IOError, "incorrect input precision"
+   314  21233664   37763835.0      1.8      0.8          items = struct.unpack(self.endianess+str(n)+self.precision,data)
+   315  21233664   10066259.0      0.5      0.2          if self.is_gauge:
+   316  21233664 3544569302.0    166.9     76.6              items = reorder(items,self.link_order,(T,X,Y,Z))
+   317  21233664  986217317.0     46.4     21.3              check_unitarity(items)
+   318  21233664    8463183.0      0.4      0.2          return items
+
+Total time: 0.001276 s
+File: qcdutils_get.py
+Function: write_header at line 632
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   632                                               @PROFILE
+   633                                               def write_header(self,precision,nt,nx,ny,nz):
+   634         1          1.0      1.0      0.1          self.precision = precision
+   635         1          2.0      2.0      0.2          self.site_size = 4*2*9*(4 if precision == 'f' else 8)
+   636         1          1.0      1.0      0.1          self.size = (nt,nx,ny,nz)
+   637         1       1184.0   1184.0     92.8          self.lime = Lime(self.filename,'w')
+   638         1          2.0      2.0      0.2          self.file = self.lime.file
+   639         1          0.0      0.0      0.0          precision = 32 if precision == 'f' else 64
+   640         1          0.0      0.0      0.0          d = dict(field = 'su3gauge',version = '1.0',
+   641         1          3.0      3.0      0.2                   precision = precision,lx = nx,ly = ny,lz = nz,lt = nt)
+   642                                                   data = """<?xml version = "1.0" encoding = "UTF-8"?>
+   643                                           <ildgFormat>
+   644                                           <version>%(version)s</version>
+   645                                           <field>su3gauge</field>
+   646                                           <precision>%(precision)s</precision>
+   647                                           <lx>%(lx)s</lx><ly>%(ly)s</ly><lz>%(lz)s</lz><lt>%(lt)s</lt>
+   648         1         15.0     15.0      1.2  </ildgFormat>""" % d
+   649         1         68.0     68.0      5.3          self.lime.write('ildg-format',data)
+
+Total time: 0 s
+File: qcdutils_get.py
+Function: write_data at line 658
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   658                                               @PROFILE
+   659                                               def write_data(self,data,target_precision = None):
+   660                                                   if len(data) != self.base_size:
+   661                                                       raise RuntimeError, "invalid data size"
+   662                                                   return self.file.write(self.pack(data))
+
+Total time: 8751.11 s
+File: qcdutils_get.py
+Function: convert_from at line 664
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   664                                               @PROFILE
+   665                                               def convert_from(self,other,target_precision = None):
+   666         3      78280.0  26093.3      0.0          (precision,nt,nx,ny,nz) = other.read_header()
+   667         1         11.0     11.0      0.0          notify('  (precision: %s, size: %ix%ix%ix%i)' % (precision,nt,nx,ny,nz))
+   668         1       1295.0   1295.0      0.0          self.write_header(target_precision or precision,nt,nx,ny,nz)
+   669         1        134.0    134.0      0.0          pbar = ProgressBar(widgets = default_widgets , maxval = self.size[0]).start()
+   670         1          2.0      2.0      0.0          def reader():
+   671                                                       for t in xrange(nt):
+   672                                                           for z in xrange(nz):
+   673                                                               for y in xrange(ny):
+   674                                                                   for x in xrange(nx):
+   675                                                                       data = other.read_data(t,x,y,z)
+   676                                                                       yield self.pack(data)
+   677                                                           pbar.update(t)
+   678         1 8751016673.0 8751016673.0    100.0          self.lime.write('ildg-binary-data',reader(),nt*nx*ny*nz*self.site_size)
+   679         1         37.0     37.0      0.0          self.lime.write('ildg-data-LFN',self.lfn)
+   680         1      17919.0  17919.0      0.0          self.lime.close()
+   681         1        102.0    102.0      0.0          pbar.finish()
+
+Total time: 0.000304 s
+File: qcdutils_get.py
+Function: read_header at line 826
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   826                                               @PROFILE
+   827                                               def read_header(self):
+   828         1        106.0    106.0     34.9          self.file = open(self.filename,'rb')
+   829         1        108.0    108.0     35.5          header = self.file.read(100000)
+   830         1          4.0      4.0      1.3          self.offset = header.find('END_HEADER\n')+11
+   831         1          1.0      1.0      0.3          if self.offset<20:
+   832                                                       raise IOError, 'not in nersc format'
+   833         1          5.0      5.0      1.6          lines = header[:self.offset-1].split('\n')[1:-1]
+   834        28         54.0      1.9     17.8          info = dict([[x.strip() for x in item.split(' = ',1)] for item in lines])
+   835         1          4.0      4.0      1.3          nx = int(info['DIMENSION_1'])
+   836         1          2.0      2.0      0.7          ny = int(info['DIMENSION_2'])
+   837         1          1.0      1.0      0.3          nz = int(info['DIMENSION_3'])
+   838         1          1.0      1.0      0.3          nt = int(info['DIMENSION_4'])
+   839         1          7.0      7.0      2.3          if info['FLOATING_POINT'].endswith('LITTLE'):
+   840         1          1.0      1.0      0.3              self.endianess = '<'
+   841                                                   else: # assume default big endinan
+   842                                                       self.endianess = '>'
+   843         1          1.0      1.0      0.3          if info['DATATYPE'] == '4D_SU3_GAUGE_3x3':
+   844         1          1.0      1.0      0.3              self.reunitarize = False
+   845                                                   elif info['DATATYPE'] == '4D_SU3_GAUGE':
+   846                                                       self.reunitarize = True
+   847                                                       self.base_size = 4*6*2
+   848                                                   else:
+   849                                                       raise IOError, "not in a known nersc format"
+   850         1          2.0      2.0      0.7          if info['FLOATING_POINT'].startswith('IEEE32'):
+   851                                                       self.precision = 'f'
+   852                                                       self.site_size = self.base_size*4
+   853         1          1.0      1.0      0.3          elif info['FLOATING_POINT'].startswith('IEEE64'):
+   854         1          1.0      1.0      0.3              self.precision = 'd'
+   855         1          1.0      1.0      0.3              self.site_size = self.base_size*8
+   856                                                   else:
+   857                                                       raise IOError, "unable to determine input precision"
+   858         1          1.0      1.0      0.3          self.size = (nt,nx,ny,nz)
+   859         1          2.0      2.0      0.7          return (self.precision,nt,nx,ny,nz)
+
+Total time: 4885.39 s
+File: qcdutils_get.py
+Function: read_data at line 861
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+   861                                               @PROFILE
+   862                                               def read_data(self,t,x,y,z):
+   863  21233664   12492166.0      0.6      0.3          (nt,nx,ny,nz) = self.size
+   864  21233664   15735945.0      0.7      0.3          i = self.offset + (x+nx*(y+ny*(z+nz*t)))*self.site_size
+   865  21233664   41557285.0      2.0      0.9          self.file.seek(i)
+   866  21233664   28470404.0      1.3      0.6          data = self.file.read(self.site_size)
+   867  21233664 4768482863.0    224.6     97.6          items = self.unpack(data)
+   868  21233664   10187165.0      0.5      0.2          if self.reunitarize:
+   869                                                       new_items = []
+   870                                                       for i in range(4):
+   871                                                           new_items += reunitarize(items[i*12:(i+1)*12])
+   872                                                       items = new_items
+   873  21233664    8468935.0      0.4      0.2          return items
+
